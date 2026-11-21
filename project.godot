@@ -10,7 +10,7 @@ config_version=5
 
 [application]
 
-config/name="dot-save"
+config/name="gs-save"
 config/description="Godot 4.7+ addon for save games: slots, versioned documents with migrations, atomic writes, integrity checks and a pluggable local or cloud store that works on desktop, mobile and in the browser. Part of the GameSpice addon family."
 run/main_scene="res://examples/save_selftest.tscn"
 config/features=PackedStringArray("4.7", "GL Compatibility")
@@ -19,7 +19,7 @@ config/icon="res://icon.svg"
 
 [editor_plugins]
 
-enabled=PackedStringArray("res://addons/dot_save/plugin.cfg")
+enabled=PackedStringArray("res://addons/gs_save/plugin.cfg")
 
 [importer_defaults]
 

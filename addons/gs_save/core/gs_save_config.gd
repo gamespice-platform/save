@@ -1,9 +1,9 @@
 class_name GSSaveConfig
 extends GSConfig
 
-## Every tunable of the save system. `cfg/addon/dot_save/*.yml`, `DOT_SAVE_*` and `--save-*` layer over these defaults. A zero in a limit means unlimited.
+## Every tunable of the save system. `cfg/addon/gs_save/*.yml`, `GS_SAVE_*` and `--save-*` layer over these defaults. A zero in a limit means unlimited.
 
-const ADDON := "dot-save"
+const ADDON := "gs-save"
 
 ## Master switch: off, every save and load fails with a state error instead of silently doing nothing.
 @export var enabled: bool = true
@@ -41,7 +41,7 @@ const ADDON := "dot-save"
 
 
 func env_prefix() -> String:
-	return "DOT_SAVE_"
+	return "GS_SAVE_"
 
 
 func cli_prefix() -> String:
@@ -60,7 +60,7 @@ func validate() -> GSResult:
 	return GSResult.success(self)
 
 
-## Defaults, then `cfg/addon/dot_save/*.yml`, then environment and command line.
+## Defaults, then `cfg/addon/gs_save/*.yml`, then environment and command line.
 static func from_files() -> GSResult:
 	var cfg := GSSaveConfig.new()
 	var files := GSAddonConfig.load_dir(ADDON)

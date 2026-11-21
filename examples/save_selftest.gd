@@ -1,6 +1,6 @@
 extends Node
 
-## dot-save's headless suite (res://examples/save_selftest.tscn).
+## gs-save's headless suite (res://examples/save_selftest.tscn).
 ## Counts sections run to their last line as well as checks, because a script error aborts a section and not the run.
 
 const EXPECTED_SECTIONS := 7
@@ -12,7 +12,7 @@ var _sections := 0
 
 
 func _ready() -> void:
-	print("dot-save")
+	print("gs-save")
 	_config()
 	_document()
 	_migrations()
@@ -39,7 +39,7 @@ func _config() -> void:
 	c.max_slots = 0
 	c.apply_dictionary({"current_version": 4, "keep_backup": false, "directory": "user://x"})
 	_check(c.current_version == 4 and not c.keep_backup and c.directory == "user://x", "a dictionary layer sets every type")
-	_check(c.env_prefix() == "DOT_SAVE_" and c.cli_prefix() == "--save-", "env and command-line prefixes")
+	_check(c.env_prefix() == "GS_SAVE_" and c.cli_prefix() == "--save-", "env and command-line prefixes")
 	var r := GSSaveConfig.from_files()
 	_check(r.ok and r.value is GSSaveConfig, "from_files returns a config")
 	_sections += 1
@@ -122,7 +122,7 @@ func _slots() -> void:
 
 
 func _file_store() -> void:
-	var dir := "user://dot_save_selftest"
+	var dir := "user://gs_save_selftest"
 	var fs := GSSaveStoreFile.new(dir, true)
 	for k in fs.keys():
 		fs.remove(k)
@@ -167,7 +167,7 @@ func _slot_tools() -> void:
 	var s2 := GSSaveSlots.new(GSSaveStoreMemory.new(), cfg)
 	s2.save("one", {})
 	_check(s2.copy_slot("one", "two").code() == GSError.CODE_QUOTA, "copy honours max_slots")
-	var f := GSSaveStoreFile.new("user://dot_save_selftest", true)
+	var f := GSSaveStoreFile.new("user://gs_save_selftest", true)
 	_check(f.write("../evil", "x").code() == GSError.CODE_INVALID, "the file store refuses a path-like key")
 	f.max_files = 1
 	for k in f.keys():
@@ -176,9 +176,9 @@ func _slot_tools() -> void:
 	_check(f.write("q2", "x").code() == GSError.CODE_QUOTA, "max_files is enforced")
 	_check(f.write("q1", "y").ok, "rewriting an existing file is not a new file")
 	f.write("q1", "y")
-	_check(f.set_aside("q1").ok and f.exists("q1.corrupt") == false and FileAccess.file_exists("user://dot_save_selftest/q1.sav.corrupt"), "the file store sets a file aside")
-	DirAccess.remove_absolute("user://dot_save_selftest/q1.sav.corrupt")
-	var g := GSSaveStoreFile.new("user://dot_save_selftest_other", true)
+	_check(f.set_aside("q1").ok and f.exists("q1.corrupt") == false and FileAccess.file_exists("user://gs_save_selftest/q1.sav.corrupt"), "the file store sets a file aside")
+	DirAccess.remove_absolute("user://gs_save_selftest/q1.sav.corrupt")
+	var g := GSSaveStoreFile.new("user://gs_save_selftest_other", true)
 	g.suffix = ".json"
 	g.aside_suffix = ".broken"
 	g.key_check = func(k: String) -> bool: return not k.is_empty() and not k.contains("/")

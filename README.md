@@ -6,13 +6,13 @@ A save is a JSON payload wrapped in a small envelope (format, version, time, sha
 
 ## Install
 
-1. Copy `addons/dot_save/` and `addons/dot_core/` into your project.
-2. Enable dot-save in *Project > Project Settings > Plugins*.
+1. Copy `addons/gs_save/` and `addons/gs_core/` into your project.
+2. Enable gs-save in *Project > Project Settings > Plugins*.
 
 ## Quick start
 
 ```gdscript
-var cfg := GSSaveConfig.from_files().value     # defaults, cfg/addon/dot_save/*.yml, DOT_SAVE_*, --save-*
+var cfg := GSSaveConfig.from_files().value     # defaults, cfg/addon/gs_save/*.yml, GS_SAVE_*, --save-*
 cfg.current_version = 2
 var slots := GSSaveSlots.new(GSSaveStoreFile.new(cfg.directory, cfg.atomic_writes), cfg)
 slots.migrations.add(1, func(d: Dictionary) -> Dictionary:
