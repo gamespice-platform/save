@@ -1,14 +1,14 @@
-class_name DotSaveAutosave
+class_name GSSaveAutosave
 extends Node
 
-## Keeps one slot written without the game thinking about it. The game calls [method mark_dirty] when something worth saving changed; the node writes the payload that [member provider] returns every [member DotSaveConfig.autosave_seconds] while dirty, and once more when the game closes or is paused. A clean document is never rewritten, so an idle player costs nothing: while clean the node does not process at all.
+## Keeps one slot written without the game thinking about it. The game calls [method mark_dirty] when something worth saving changed; the node writes the payload that [member provider] returns every [member GSSaveConfig.autosave_seconds] while dirty, and once more when the game closes or is paused. A clean document is never rewritten, so an idle player costs nothing: while clean the node does not process at all.
 
 ## An autosave or flush finished.
 signal saved(slot: String)
 ## A write failed. The document stays dirty and is retried at the next interval.
-signal failed(slot: String, error: DotResult)
+signal failed(slot: String, error: GSResult)
 
-var slots: DotSaveSlots
+var slots: GSSaveSlots
 var slot: String = "auto"
 ## Returns the Dictionary to save. Called only when a write is due.
 var provider: Callable = Callable()
@@ -18,7 +18,7 @@ var _since: float = 0.0
 
 
 ## Wires the node to [param p_slots] and [param p_slot] and starts it idle.
-func setup(p_slots: DotSaveSlots, p_slot: String, p_provider: Callable) -> void:
+func setup(p_slots: GSSaveSlots, p_slot: String, p_provider: Callable) -> void:
 	slots = p_slots
 	slot = p_slot
 	provider = p_provider
@@ -39,11 +39,11 @@ func mark_dirty() -> void:
 
 
 ## Writes now if dirty. The value is the write's result, or a success with null when there was nothing to write.
-func flush() -> DotResult:
+func flush() -> GSResult:
 	if not _dirty:
-		return DotResult.success(null)
+		return GSResult.success(null)
 	if slots == null or not provider.is_valid():
-		return DotResult.fail(DotError.CODE_STATE, "autosave is not set up")
+		return GSResult.fail(GSError.CODE_STATE, "autosave is not set up")
 	var r := slots.save(slot, provider.call(), int(Time.get_unix_time_from_system()))
 	if r.ok:
 		_dirty = false

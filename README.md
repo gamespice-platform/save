@@ -2,7 +2,7 @@
 
 Godot 4.7+ addon for save games: slots, versioned documents with migrations, atomic writes, integrity checks and a pluggable local or cloud store that works on desktop, mobile and in the browser. Part of the [GameSpice](https://github.com/gamespice-platform) addon family. It needs only [GameSpice Core](https://github.com/gamespice-platform/core).
 
-A save is a JSON payload wrapped in a small envelope (format, version, time, sha256). `DotSaveSlots` writes it to named slots through a `DotSaveStore`, keeps the previous copy as a backup, and on load verifies the checksum, falls back to the backup if the newest copy is damaged, and runs your migrations up to the current version.
+A save is a JSON payload wrapped in a small envelope (format, version, time, sha256). `GSSaveSlots` writes it to named slots through a `GSSaveStore`, keeps the previous copy as a backup, and on load verifies the checksum, falls back to the backup if the newest copy is damaged, and runs your migrations up to the current version.
 
 ## Install
 
@@ -12,9 +12,9 @@ A save is a JSON payload wrapped in a small envelope (format, version, time, sha
 ## Quick start
 
 ```gdscript
-var cfg := DotSaveConfig.from_files().value     # defaults, cfg/addon/dot_save/*.yml, DOT_SAVE_*, --save-*
+var cfg := GSSaveConfig.from_files().value     # defaults, cfg/addon/dot_save/*.yml, DOT_SAVE_*, --save-*
 cfg.current_version = 2
-var slots := DotSaveSlots.new(DotSaveStoreFile.new(cfg.directory, cfg.atomic_writes), cfg)
+var slots := GSSaveSlots.new(GSSaveStoreFile.new(cfg.directory, cfg.atomic_writes), cfg)
 slots.migrations.add(1, func(d: Dictionary) -> Dictionary:
     d["gold"] = d.get("coins", 0)                # a step turns version N into N+1
     d.erase("coins")
@@ -26,11 +26,11 @@ if not r.ok:
 var loaded := slots.load_slot("slot_1")          # value: {payload, version, saved_at, from_backup}
 ```
 
-Write a different `DotSaveStore` (`read`, `write`, `remove`, `exists`, `keys`) to save somewhere else, for example to GameSpice Cloud. `DotSaveStoreMemory` is there for tests and servers that never persist.
+Write a different `GSSaveStore` (`read`, `write`, `remove`, `exists`, `keys`) to save somewhere else, for example to GameSpice Cloud. `GSSaveStoreMemory` is there for tests and servers that never persist.
 
 ## Settings
 
-Every number is a field on `DotSaveConfig`. A zero in a limit means unlimited. Ranges are inspector slider limits, not enforced caps.
+Every number is a field on `GSSaveConfig`. A zero in a limit means unlimited. Ranges are inspector slider limits, not enforced caps.
 
 | Setting | Default | What it does |
 | --- | --- | --- |
@@ -43,21 +43,21 @@ Every number is a field on `DotSaveConfig`. A zero in a limit means unlimited. R
 | `directory` | `user://saves` | Where the file store writes. |
 | `atomic_writes` | true | Write a temporary file and rename it into place. |
 | `set_aside_damaged` | true | When both copies are damaged, move the newest to `<slot>.sav.corrupt` (never deleted). |
-| `autosave_seconds` | 0 | Interval for `DotSaveAutosave` while dirty; 0 saves only on flush, exit or pause. |
-| `save_on_exit` | true | `DotSaveAutosave` flushes when the game closes or is paused. |
+| `autosave_seconds` | 0 | Interval for `GSSaveAutosave` while dirty; 0 saves only on flush, exit or pause. |
+| `save_on_exit` | true | `GSSaveAutosave` flushes when the game closes or is paused. |
 | `max_files` | 0 | Most files the file store holds; 0 is unlimited. |
 
 ## Slot tools and autosave
 
-`slots.info(slot)` reads the version, time and size without migrating. `copy_slot(from, to, overwrite)` duplicates a slot, `restore_backup(slot)` is the player's undo for the last save. `DotSaveSlots` emits `saved`, `loaded` and `damaged`.
+`slots.info(slot)` reads the version, time and size without migrating. `copy_slot(from, to, overwrite)` duplicates a slot, `restore_backup(slot)` is the player's undo for the last save. `GSSaveSlots` emits `saved`, `loaded` and `damaged`.
 
-`DotSaveAutosave` is a node: call `setup(slots, "auto", provider)`, then `mark_dirty()` whenever something worth saving changed. It writes every `autosave_seconds` while dirty and on close or pause, and does not process at all while clean. `DotSaveStoreFile` rejects keys that are not plain file names, writes through the shared atomic writer (with the browser flush), and offers `set_aside(key)`.
+`GSSaveAutosave` is a node: call `setup(slots, "auto", provider)`, then `mark_dirty()` whenever something worth saving changed. It writes every `autosave_seconds` while dirty and on close or pause, and does not process at all while clean. `GSSaveStoreFile` rejects keys that are not plain file names, writes through the shared atomic writer (with the browser flush), and offers `set_aside(key)`.
 
 ## What it is not
 
 - Not game settings: GameSpice Settings holds options with scopes and server policy. A save holds a player's progress.
 - Not achievements, statistics or leaderboards: those are reported to the backbone by their own addons.
-- Not a cloud client: GameSpice Cloud delivers content. A cloud save is a `DotSaveStore` you write over your own service.
+- Not a cloud client: GameSpice Cloud delivers content. A cloud save is a `GSSaveStore` you write over your own service.
 - Not encryption. The checksum catches damage and casual edits, it does not stop a determined player. A server that cares keeps the state itself.
 
 ## Test

@@ -1,9 +1,9 @@
-class_name DotSaveStoreFile
-extends DotSaveStore
+class_name GSSaveStoreFile
+extends GSSaveStore
 
 ## A folder of files, one per key. Works on desktop and mobile; in a browser `user://` is backed by IndexedDB, so it works there too.
 ##
-## Writes go through [method DotPaths.write_text]: a temporary file renamed over the target (with [member atomic]), and the browser's IndexedDB flushed, because a write that is only in the tab's memory is gone when the tab closes. A key is a file name, so it is held to [method valid_key]: anything else fails with a reason instead of reaching outside the folder. A file that cannot be read can be moved aside with [method set_aside] (never deleted) so one bad file costs one slot.
+## Writes go through [method GSPaths.write_text]: a temporary file renamed over the target (with [member atomic]), and the browser's IndexedDB flushed, because a write that is only in the tab's memory is gone when the tab closes. A key is a file name, so it is held to [method valid_key]: anything else fails with a reason instead of reaching outside the folder. A file that cannot be read can be moved aside with [method set_aside] (never deleted) so one bad file costs one slot.
 
 const SUFFIX := ".sav"
 const ASIDE := ".corrupt"
@@ -49,47 +49,47 @@ func _usable(key: String) -> bool:
 	return valid_key(key) if key_check.is_null() else bool(key_check.call(key))
 
 
-func _gate(key: String) -> DotResult:
+func _gate(key: String) -> GSResult:
 	if not _usable(key):
-		return DotResult.fail(DotError.CODE_INVALID, "'%s' is not a usable save key (a-z 0-9 _ - . , no leading dot)" % key if key_check.is_null() else "'%s' is not a usable key" % key)
-	return DotResult.success(null)
+		return GSResult.fail(GSError.CODE_INVALID, "'%s' is not a usable save key (a-z 0-9 _ - . , no leading dot)" % key if key_check.is_null() else "'%s' is not a usable key" % key)
+	return GSResult.success(null)
 
 
-func read(key: String) -> DotResult:
+func read(key: String) -> GSResult:
 	var gate := _gate(key)
 	if not gate.ok:
 		return gate
 	if not FileAccess.file_exists(_path(key)):
-		return DotResult.fail(DotError.CODE_IO, "no save under '%s'" % key)
+		return GSResult.fail(GSError.CODE_IO, "no save under '%s'" % key)
 	var f := FileAccess.open(_path(key), FileAccess.READ)
 	if f == null:
-		return DotResult.fail(DotError.CODE_IO, "cannot open '%s'" % _path(key), error_string(FileAccess.get_open_error()))
-	return DotResult.success(f.get_as_text())
+		return GSResult.fail(GSError.CODE_IO, "cannot open '%s'" % _path(key), error_string(FileAccess.get_open_error()))
+	return GSResult.success(f.get_as_text())
 
 
-func write(key: String, text: String) -> DotResult:
+func write(key: String, text: String) -> GSResult:
 	var gate := _gate(key)
 	if not gate.ok:
 		return gate
 	if max_files > 0 and not exists(key) and keys().size() >= max_files:
-		return DotResult.fail(DotError.CODE_QUOTA, "the save folder already holds %d files, max_files is %d" % [keys().size(), max_files])
-	var written := DotPaths.write_text(_path(key), text, atomic)
+		return GSResult.fail(GSError.CODE_QUOTA, "the save folder already holds %d files, max_files is %d" % [keys().size(), max_files])
+	var written := GSPaths.write_text(_path(key), text, atomic)
 	if not written.ok:
 		return written.wrap("cannot write the save '%s'" % key)
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
-func remove(key: String) -> DotResult:
+func remove(key: String) -> GSResult:
 	var gate := _gate(key)
 	if not gate.ok:
 		return gate
 	if FileAccess.file_exists(_path(key)):
 		var err := DirAccess.remove_absolute(_path(key))
 		if err != OK:
-			return DotResult.fail(DotError.CODE_IO, "cannot delete '%s'" % _path(key), error_string(err))
+			return GSResult.fail(GSError.CODE_IO, "cannot delete '%s'" % _path(key), error_string(err))
 		# A removal is a write too: unflushed, the file returns on the next browser load.
-		DotWeb.sync_filesystem()
-	return DotResult.success(null)
+		GSWeb.sync_filesystem()
+	return GSResult.success(null)
 
 
 func exists(key: String) -> bool:
@@ -107,18 +107,18 @@ func keys() -> PackedStringArray:
 
 
 ## Moves an unreadable save to `<key>.sav.corrupt` (or the [member suffix] and [member aside_suffix] set) so it stays on disk for a person to recover and the slot can be written again. Fails when there is nothing to move.
-func set_aside(key: String) -> DotResult:
+func set_aside(key: String) -> GSResult:
 	var gate := _gate(key)
 	if not gate.ok:
 		return gate
 	if not FileAccess.file_exists(_path(key)):
-		return DotResult.fail(DotError.CODE_IO, "no save under '%s'" % key)
+		return GSResult.fail(GSError.CODE_IO, "no save under '%s'" % key)
 	var target := _path(key) + aside_suffix
 	if FileAccess.file_exists(target):
 		DirAccess.remove_absolute(target)
 	var err := DirAccess.rename_absolute(_path(key), target)
 	if err != OK:
-		return DotResult.fail(DotError.CODE_IO, "cannot set '%s' aside" % key, error_string(err))
-	DotWeb.sync_filesystem()
-	DotLog.warn(CHANNEL, "a save was set aside", {"key": key, "to": target})
-	return DotResult.success(target)
+		return GSResult.fail(GSError.CODE_IO, "cannot set '%s' aside" % key, error_string(err))
+	GSWeb.sync_filesystem()
+	GSLog.warn(CHANNEL, "a save was set aside", {"key": key, "to": target})
+	return GSResult.success(target)

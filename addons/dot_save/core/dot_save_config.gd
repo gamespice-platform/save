@@ -1,5 +1,5 @@
-class_name DotSaveConfig
-extends DotConfig
+class_name GSSaveConfig
+extends GSConfig
 
 ## Every tunable of the save system. `cfg/addon/dot_save/*.yml`, `DOT_SAVE_*` and `--save-*` layer over these defaults. A zero in a limit means unlimited.
 
@@ -48,22 +48,22 @@ func cli_prefix() -> String:
 	return "--save-"
 
 
-func validate() -> DotResult:
+func validate() -> GSResult:
 	if current_version < 1:
-		return DotResult.fail(DotError.CODE_INVALID, "save current_version %d is below 1" % current_version)
+		return GSResult.fail(GSError.CODE_INVALID, "save current_version %d is below 1" % current_version)
 	if max_bytes < 0 or max_slots < 0:
-		return DotResult.fail(DotError.CODE_INVALID, "save limits cannot be negative (0 is unlimited)")
+		return GSResult.fail(GSError.CODE_INVALID, "save limits cannot be negative (0 is unlimited)")
 	if max_files < 0 or autosave_seconds < 0.0:
-		return DotResult.fail(DotError.CODE_INVALID, "save max_files and autosave_seconds cannot be negative (0 is off or unlimited)")
+		return GSResult.fail(GSError.CODE_INVALID, "save max_files and autosave_seconds cannot be negative (0 is off or unlimited)")
 	if directory.is_empty():
-		return DotResult.fail(DotError.CODE_INVALID, "save directory is empty")
-	return DotResult.success(self)
+		return GSResult.fail(GSError.CODE_INVALID, "save directory is empty")
+	return GSResult.success(self)
 
 
 ## Defaults, then `cfg/addon/dot_save/*.yml`, then environment and command line.
-static func from_files() -> DotResult:
-	var cfg := DotSaveConfig.new()
-	var files := DotAddonConfig.load_dir(ADDON)
+static func from_files() -> GSResult:
+	var cfg := GSSaveConfig.new()
+	var files := GSAddonConfig.load_dir(ADDON)
 	if not files.ok:
 		return files
 	cfg.apply_dictionary(files.value as Dictionary, "yml")

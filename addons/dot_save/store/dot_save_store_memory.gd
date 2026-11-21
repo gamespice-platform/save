@@ -1,25 +1,25 @@
-class_name DotSaveStoreMemory
-extends DotSaveStore
+class_name GSSaveStoreMemory
+extends GSSaveStore
 
 ## A store in a Dictionary: tests, a server that never persists, and the fallback when nothing else is allowed.
 
 var _data: Dictionary = {}
 
 
-func read(key: String) -> DotResult:
+func read(key: String) -> GSResult:
 	if not _data.has(key):
-		return DotResult.fail(DotError.CODE_IO, "no save under '%s'" % key)
-	return DotResult.success(_data[key])
+		return GSResult.fail(GSError.CODE_IO, "no save under '%s'" % key)
+	return GSResult.success(_data[key])
 
 
-func write(key: String, text: String) -> DotResult:
+func write(key: String, text: String) -> GSResult:
 	_data[key] = text
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
-func remove(key: String) -> DotResult:
+func remove(key: String) -> GSResult:
 	_data.erase(key)
-	return DotResult.success(null)
+	return GSResult.success(null)
 
 
 func exists(key: String) -> bool:
@@ -30,10 +30,10 @@ func keys() -> PackedStringArray:
 	return PackedStringArray(_data.keys())
 
 
-func set_aside(key: String) -> DotResult:
+func set_aside(key: String) -> GSResult:
 	if not _data.has(key):
-		return DotResult.fail(DotError.CODE_IO, "no save under '%s'" % key)
+		return GSResult.fail(GSError.CODE_IO, "no save under '%s'" % key)
 	var to := key + ".corrupt"
 	_data[to] = _data[key]
 	_data.erase(key)
-	return DotResult.success(to)
+	return GSResult.success(to)
