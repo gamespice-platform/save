@@ -1,0 +1,57 @@
+class_name DotSaveConfig
+extends DotConfig
+
+## Every tunable of the save system. `cfg/addon/dot_save/*.yml`, `DOT_SAVE_*` and `--save-*` layer over these defaults. A zero in a limit means unlimited.
+
+const ADDON := "dot-save"
+
+## Master switch: off, every save and load fails with a state error instead of silently doing nothing.
+@export var enabled: bool = true
+
+@export_group("Document")
+## The document version this build writes. Older saves are migrated up to it on load.
+@export_range(1, 1000, 1) var current_version: int = 1
+## Write a sha256 over the payload and check it on load.
+@export var checksum: bool = true
+## Largest accepted document in bytes; 0 is unlimited.
+@export_range(0, 1048576, 1024) var max_bytes: int = 0
+
+@export_group("Slots")
+## The most slots a player may hold; 0 is unlimited.
+@export_range(0, 100, 1) var max_slots: int = 0
+## Keep the previous document of a slot as a backup and fall back to it when the newest is damaged.
+@export var keep_backup: bool = true
+
+@export_group("Files")
+## Where the file store writes.
+@export var directory: String = "user://saves"
+## Write to a temporary file and rename it over the target, so a crash never leaves half a save.
+@export var atomic_writes: bool = true
+
+
+func env_prefix() -> String:
+	return "DOT_SAVE_"
+
+
+func cli_prefix() -> String:
+	return "--save-"
+
+
+func validate() -> DotResult:
+	if current_version < 1:
+		return DotResult.fail(DotError.CODE_INVALID, "save current_version %d is below 1" % current_version)
+	if max_bytes < 0 or max_slots < 0:
+		return DotResult.fail(DotError.CODE_INVALID, "save limits cannot be negative (0 is unlimited)")
+	if directory.is_empty():
+		return DotResult.fail(DotError.CODE_INVALID, "save directory is empty")
+	return DotResult.success(self)
+
+
+## Defaults, then `cfg/addon/dot_save/*.yml`, then environment and command line.
+static func from_files() -> DotResult:
+	var cfg := DotSaveConfig.new()
+	var files := DotAddonConfig.load_dir(ADDON)
+	if not files.ok:
+		return files
+	cfg.apply_dictionary(files.value as Dictionary, "yml")
+	return cfg.load_layered()
