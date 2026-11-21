@@ -13,6 +13,12 @@ var directory: String
 var atomic: bool = true
 ## Most files the folder may hold; 0 is unlimited. A write of a new key past it fails with CODE_QUOTA.
 var max_files: int = 0
+## The ending of every file; [code].sav[/code] by default. A store that keeps another family's files (profiles, settings) sets its own, and [method keys] lists only files ending in it.
+var suffix: String = SUFFIX
+## What an unreadable file is renamed to, appended to its name; see [method set_aside].
+var aside_suffix: String = ASIDE
+## Decides which keys are usable; empty means [method valid_key]. A caller whose keys are made safe elsewhere (a hash, a scoped id) passes its own rule, taking a String and returning a bool.
+var key_check: Callable = Callable()
 
 
 func _init(p_directory: String = "user://saves", p_atomic: bool = true) -> void:
@@ -30,13 +36,22 @@ static func valid_key(key: String) -> bool:
 	return true
 
 
+## The path a key lives at, without checking the key.
+func path_for(key: String) -> String:
+	return directory.path_join(key + suffix)
+
+
 func _path(key: String) -> String:
-	return directory.path_join(key + SUFFIX)
+	return directory.path_join(key + suffix)
+
+
+func _usable(key: String) -> bool:
+	return valid_key(key) if key_check.is_null() else bool(key_check.call(key))
 
 
 func _gate(key: String) -> DotResult:
-	if not valid_key(key):
-		return DotResult.fail(DotError.CODE_INVALID, "'%s' is not a usable save key (a-z 0-9 _ - . , no leading dot)" % key)
+	if not _usable(key):
+		return DotResult.fail(DotError.CODE_INVALID, "'%s' is not a usable save key (a-z 0-9 _ - . , no leading dot)" % key if key_check.is_null() else "'%s' is not a usable key" % key)
 	return DotResult.success(null)
 
 
@@ -78,7 +93,7 @@ func remove(key: String) -> DotResult:
 
 
 func exists(key: String) -> bool:
-	return valid_key(key) and FileAccess.file_exists(_path(key))
+	return _usable(key) and FileAccess.file_exists(_path(key))
 
 
 func keys() -> PackedStringArray:
@@ -86,19 +101,19 @@ func keys() -> PackedStringArray:
 	if not DirAccess.dir_exists_absolute(directory):
 		return out
 	for f in DirAccess.get_files_at(directory):
-		if f.ends_with(SUFFIX):
-			out.append(f.trim_suffix(SUFFIX))
+		if f.ends_with(suffix):
+			out.append(f.trim_suffix(suffix))
 	return out
 
 
-## Moves an unreadable save to `<key>.sav.corrupt` so it stays on disk for a person to recover and the slot can be written again. Fails when there is nothing to move.
+## Moves an unreadable save to `<key>.sav.corrupt` (or the [member suffix] and [member aside_suffix] set) so it stays on disk for a person to recover and the slot can be written again. Fails when there is nothing to move.
 func set_aside(key: String) -> DotResult:
 	var gate := _gate(key)
 	if not gate.ok:
 		return gate
 	if not FileAccess.file_exists(_path(key)):
 		return DotResult.fail(DotError.CODE_IO, "no save under '%s'" % key)
-	var target := _path(key) + ASIDE
+	var target := _path(key) + aside_suffix
 	if FileAccess.file_exists(target):
 		DirAccess.remove_absolute(target)
 	var err := DirAccess.rename_absolute(_path(key), target)

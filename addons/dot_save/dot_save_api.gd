@@ -4,5 +4,6 @@ extends RefCounted
 
 # 1: first slice, see README.
 # 2: slot info/copy/restore, signals, autosave node, file store quota and set-aside.
-const LEVEL := 2
+# 3: DotSaveStoreFile suffix, aside_suffix, key_check and path_for, so other addons' file stores can sit on it.
+const LEVEL := 3
 const OLDEST := 1

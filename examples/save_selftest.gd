@@ -4,7 +4,7 @@ extends Node
 ## Counts sections run to their last line as well as checks, because a script error aborts a section and not the run.
 
 const EXPECTED_SECTIONS := 7
-const EXPECTED_CHECKS := 74
+const EXPECTED_CHECKS := 77
 
 var _passed := 0
 var _failed := 0
@@ -178,6 +178,14 @@ func _slot_tools() -> void:
 	f.write("q1", "y")
 	_check(f.set_aside("q1").ok and f.exists("q1.corrupt") == false and FileAccess.file_exists("user://dot_save_selftest/q1.sav.corrupt"), "the file store sets a file aside")
 	DirAccess.remove_absolute("user://dot_save_selftest/q1.sav.corrupt")
+	var g := DotSaveStoreFile.new("user://dot_save_selftest_other", true)
+	g.suffix = ".json"
+	g.aside_suffix = ".broken"
+	g.key_check = func(k: String) -> bool: return not k.is_empty() and not k.contains("/")
+	_check(g.write("Mixed.Case:key", "{}").ok and FileAccess.file_exists(g.path_for("Mixed.Case:key")), "a store with its own suffix and key rule writes under that name")
+	_check(g.keys().has("Mixed.Case:key") and g.write("a/b", "x").code() == DotError.CODE_INVALID, "keys lists by the suffix and the key rule is honoured")
+	_check(g.set_aside("Mixed.Case:key").ok and FileAccess.file_exists(g.path_for("Mixed.Case:key") + ".broken"), "set_aside uses aside_suffix")
+	DirAccess.remove_absolute(g.path_for("Mixed.Case:key") + ".broken")
 	var cc := DotSaveConfig.new()
 	cc.autosave_seconds = -1.0
 	_check(not cc.validate().ok, "a negative autosave interval is refused")
