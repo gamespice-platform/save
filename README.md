@@ -42,6 +42,16 @@ Every number is a field on `DotSaveConfig`. A zero in a limit means unlimited. R
 | `keep_backup` | true | Keep the previous copy and fall back to it. |
 | `directory` | `user://saves` | Where the file store writes. |
 | `atomic_writes` | true | Write a temporary file and rename it into place. |
+| `set_aside_damaged` | true | When both copies are damaged, move the newest to `<slot>.sav.corrupt` (never deleted). |
+| `autosave_seconds` | 0 | Interval for `DotSaveAutosave` while dirty; 0 saves only on flush, exit or pause. |
+| `save_on_exit` | true | `DotSaveAutosave` flushes when the game closes or is paused. |
+| `max_files` | 0 | Most files the file store holds; 0 is unlimited. |
+
+## Slot tools and autosave
+
+`slots.info(slot)` reads the version, time and size without migrating. `copy_slot(from, to, overwrite)` duplicates a slot, `restore_backup(slot)` is the player's undo for the last save. `DotSaveSlots` emits `saved`, `loaded` and `damaged`.
+
+`DotSaveAutosave` is a node: call `setup(slots, "auto", provider)`, then `mark_dirty()` whenever something worth saving changed. It writes every `autosave_seconds` while dirty and on close or pause, and does not process at all while clean. `DotSaveStoreFile` rejects keys that are not plain file names, writes through the shared atomic writer (with the browser flush), and offers `set_aside(key)`.
 
 ## What it is not
 

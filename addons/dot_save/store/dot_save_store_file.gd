@@ -1,12 +1,18 @@
 class_name DotSaveStoreFile
 extends DotSaveStore
 
-## A folder of files, one per key. Works on desktop and mobile; in a browser `user://` is backed by IndexedDB, so it works there too. With [member atomic] a write goes to `<key>.tmp` and is renamed over the target.
+## A folder of files, one per key. Works on desktop and mobile; in a browser `user://` is backed by IndexedDB, so it works there too.
+##
+## Writes go through [method DotPaths.write_text]: a temporary file renamed over the target (with [member atomic]), and the browser's IndexedDB flushed, because a write that is only in the tab's memory is gone when the tab closes. A key is a file name, so it is held to [method valid_key]: anything else fails with a reason instead of reaching outside the folder. A file that cannot be read can be moved aside with [method set_aside] (never deleted) so one bad file costs one slot.
 
 const SUFFIX := ".sav"
+const ASIDE := ".corrupt"
+const CHANNEL := "save.file"
 
 var directory: String
 var atomic: bool = true
+## Most files the folder may hold; 0 is unlimited. A write of a new key past it fails with CODE_QUOTA.
+var max_files: int = 0
 
 
 func _init(p_directory: String = "user://saves", p_atomic: bool = true) -> void:
@@ -14,11 +20,30 @@ func _init(p_directory: String = "user://saves", p_atomic: bool = true) -> void:
 	atomic = p_atomic
 
 
+## A key is 1 to 96 of a-z, 0-9, underscore, dash and dot, and does not start with a dot.
+static func valid_key(key: String) -> bool:
+	if key.is_empty() or key.length() > 96 or key.begins_with("."):
+		return false
+	for c in key:
+		if not (c >= "a" and c <= "z" or c >= "0" and c <= "9" or c == "_" or c == "-" or c == "."):
+			return false
+	return true
+
+
 func _path(key: String) -> String:
 	return directory.path_join(key + SUFFIX)
 
 
+func _gate(key: String) -> DotResult:
+	if not valid_key(key):
+		return DotResult.fail(DotError.CODE_INVALID, "'%s' is not a usable save key (a-z 0-9 _ - . , no leading dot)" % key)
+	return DotResult.success(null)
+
+
 func read(key: String) -> DotResult:
+	var gate := _gate(key)
+	if not gate.ok:
+		return gate
 	if not FileAccess.file_exists(_path(key)):
 		return DotResult.fail(DotError.CODE_IO, "no save under '%s'" % key)
 	var f := FileAccess.open(_path(key), FileAccess.READ)
@@ -28,33 +53,32 @@ func read(key: String) -> DotResult:
 
 
 func write(key: String, text: String) -> DotResult:
-	var made := DirAccess.make_dir_recursive_absolute(directory)
-	if made != OK:
-		return DotResult.fail(DotError.CODE_IO, "cannot create '%s'" % directory, error_string(made))
-	var target := _path(key)
-	var dest := target + ".tmp" if atomic else target
-	var f := FileAccess.open(dest, FileAccess.WRITE)
-	if f == null:
-		return DotResult.fail(DotError.CODE_IO, "cannot write '%s'" % dest, error_string(FileAccess.get_open_error()))
-	f.store_string(text)
-	f.close()
-	if atomic:
-		var err := DirAccess.rename_absolute(dest, target)
-		if err != OK:
-			return DotResult.fail(DotError.CODE_IO, "cannot move '%s' into place" % dest, error_string(err))
+	var gate := _gate(key)
+	if not gate.ok:
+		return gate
+	if max_files > 0 and not exists(key) and keys().size() >= max_files:
+		return DotResult.fail(DotError.CODE_QUOTA, "the save folder already holds %d files, max_files is %d" % [keys().size(), max_files])
+	var written := DotPaths.write_text(_path(key), text, atomic)
+	if not written.ok:
+		return written.wrap("cannot write the save '%s'" % key)
 	return DotResult.success(null)
 
 
 func remove(key: String) -> DotResult:
+	var gate := _gate(key)
+	if not gate.ok:
+		return gate
 	if FileAccess.file_exists(_path(key)):
 		var err := DirAccess.remove_absolute(_path(key))
 		if err != OK:
 			return DotResult.fail(DotError.CODE_IO, "cannot delete '%s'" % _path(key), error_string(err))
+		# A removal is a write too: unflushed, the file returns on the next browser load.
+		DotWeb.sync_filesystem()
 	return DotResult.success(null)
 
 
 func exists(key: String) -> bool:
-	return FileAccess.file_exists(_path(key))
+	return valid_key(key) and FileAccess.file_exists(_path(key))
 
 
 func keys() -> PackedStringArray:
@@ -65,3 +89,21 @@ func keys() -> PackedStringArray:
 		if f.ends_with(SUFFIX):
 			out.append(f.trim_suffix(SUFFIX))
 	return out
+
+
+## Moves an unreadable save to `<key>.sav.corrupt` so it stays on disk for a person to recover and the slot can be written again. Fails when there is nothing to move.
+func set_aside(key: String) -> DotResult:
+	var gate := _gate(key)
+	if not gate.ok:
+		return gate
+	if not FileAccess.file_exists(_path(key)):
+		return DotResult.fail(DotError.CODE_IO, "no save under '%s'" % key)
+	var target := _path(key) + ASIDE
+	if FileAccess.file_exists(target):
+		DirAccess.remove_absolute(target)
+	var err := DirAccess.rename_absolute(_path(key), target)
+	if err != OK:
+		return DotResult.fail(DotError.CODE_IO, "cannot set '%s' aside" % key, error_string(err))
+	DotWeb.sync_filesystem()
+	DotLog.warn(CHANNEL, "a save was set aside", {"key": key, "to": target})
+	return DotResult.success(target)

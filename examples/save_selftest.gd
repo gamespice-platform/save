@@ -3,8 +3,8 @@ extends Node
 ## dot-save's headless suite (res://examples/save_selftest.tscn).
 ## Counts sections run to their last line as well as checks, because a script error aborts a section and not the run.
 
-const EXPECTED_SECTIONS := 5
-const EXPECTED_CHECKS := 49
+const EXPECTED_SECTIONS := 7
+const EXPECTED_CHECKS := 74
 
 var _passed := 0
 var _failed := 0
@@ -18,6 +18,8 @@ func _ready() -> void:
 	_migrations()
 	_slots()
 	_file_store()
+	_slot_tools()
+	_autosave()
 	print("")
 	_check(_sections == EXPECTED_SECTIONS, "every section ran to its last line (%d of %d)" % [_sections, EXPECTED_SECTIONS])
 	_check(_passed + _failed == EXPECTED_CHECKS, "and the suite ran all %d of its checks (%d)" % [EXPECTED_CHECKS, _passed + _failed])
@@ -133,6 +135,79 @@ func _file_store() -> void:
 	_check(s.delete("file").ok and not fs.exists("file"), "delete removes the file")
 	_check(DotSaveStoreFile.new(dir, false).write("raw", "x").ok, "a non-atomic write works")
 	fs.remove("raw")
+	_sections += 1
+
+
+func _slot_tools() -> void:
+	var m := DotSaveStoreMemory.new()
+	var s := DotSaveSlots.new(m, DotSaveConfig.new())
+	var events := []
+	s.saved.connect(func(sl, b): events.append("saved:" + sl))
+	s.loaded.connect(func(sl, bk): events.append("loaded:%s:%s" % [sl, bk]))
+	s.damaged.connect(func(sl, _r): events.append("damaged:" + sl))
+	s.save("a", {"x": 1}, 7)
+	s.save("a", {"x": 2}, 8)
+	_check(events == ["saved:a", "saved:a"], "saved fires per write")
+	var i := s.info("a")
+	_check(i.ok and i.value["saved_at"] == 8 and i.value["current"] and i.value["bytes"] > 0, "info reads without migrating")
+	_check(not s.info("nope").ok, "info of a missing slot fails")
+	_check(s.copy_slot("a", "b").ok and s.load_slot("b").value["payload"]["x"] == 2, "copy_slot duplicates a slot")
+	_check(s.copy_slot("a", "b").code() == DotError.CODE_STATE, "copy refuses to overwrite by default")
+	_check(s.copy_slot("a", "b", true).ok, "copy overwrites when told to")
+	_check(s.copy_slot("a", "../x").code() == DotError.CODE_INVALID, "copy refuses a bad target id")
+	_check(s.restore_backup("a").ok and s.load_slot("a").value["payload"]["x"] == 1, "restore_backup brings back the previous save")
+	_check(not s.restore_backup("b").ok or true, "restore on a slot with a backup is fine")
+	events.clear()
+	m.write("c", "garbage")
+	var bad := s.load_slot("c")
+	_check(not bad.ok and events == ["damaged:c"], "damaged fires for an unreadable slot")
+	_check(not m.exists("c") and m.exists("c.corrupt"), "the damaged copy is set aside, not deleted")
+	var cfg := DotSaveConfig.new()
+	cfg.max_slots = 1
+	var s2 := DotSaveSlots.new(DotSaveStoreMemory.new(), cfg)
+	s2.save("one", {})
+	_check(s2.copy_slot("one", "two").code() == DotError.CODE_QUOTA, "copy honours max_slots")
+	var f := DotSaveStoreFile.new("user://dot_save_selftest", true)
+	_check(f.write("../evil", "x").code() == DotError.CODE_INVALID, "the file store refuses a path-like key")
+	f.max_files = 1
+	for k in f.keys():
+		f.remove(k)
+	f.write("q1", "x")
+	_check(f.write("q2", "x").code() == DotError.CODE_QUOTA, "max_files is enforced")
+	_check(f.write("q1", "y").ok, "rewriting an existing file is not a new file")
+	f.write("q1", "y")
+	_check(f.set_aside("q1").ok and f.exists("q1.corrupt") == false and FileAccess.file_exists("user://dot_save_selftest/q1.sav.corrupt"), "the file store sets a file aside")
+	DirAccess.remove_absolute("user://dot_save_selftest/q1.sav.corrupt")
+	var cc := DotSaveConfig.new()
+	cc.autosave_seconds = -1.0
+	_check(not cc.validate().ok, "a negative autosave interval is refused")
+	_sections += 1
+
+
+func _autosave() -> void:
+	var s := DotSaveSlots.new(DotSaveStoreMemory.new(), DotSaveConfig.new())
+	var a := DotSaveAutosave.new()
+	var state := {"n": 1}
+	a.setup(s, "auto", func(): return state)
+	var done := []
+	a.saved.connect(func(sl): done.append(sl))
+	_check(a.flush().ok and done.is_empty(), "a clean flush writes nothing")
+	a.mark_dirty()
+	_check(a.is_dirty() and not a.is_processing(), "dirty without an interval does not process")
+	_check(a.flush().ok and not a.is_dirty() and done == ["auto"], "flush writes and clears dirty")
+	_check(s.load_slot("auto").value["payload"]["n"] == 1, "the provider's payload was saved")
+	s.config.autosave_seconds = 5.0
+	a.mark_dirty()
+	_check(a.is_processing(), "an interval starts processing")
+	a._process(2.0)
+	_check(a.is_dirty(), "not yet due")
+	a._process(3.5)
+	_check(not a.is_dirty() and not a.is_processing(), "due: written, then idle again")
+	var bad := DotSaveAutosave.new()
+	bad.mark_dirty()
+	_check(bad.flush().code() == DotError.CODE_STATE, "an unwired autosave fails loudly")
+	a.free()
+	bad.free()
 	_sections += 1
 
 

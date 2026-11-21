@@ -22,7 +22,18 @@ const ADDON := "dot-save"
 ## Keep the previous document of a slot as a backup and fall back to it when the newest is damaged.
 @export var keep_backup: bool = true
 
+## When both copies of a slot are damaged, move the newest aside as `.corrupt` (never delete it) so the slot can be written again.
+@export var set_aside_damaged: bool = true
+
+@export_group("Autosave")
+## Seconds between autosaves of a dirty document; 0 saves only when asked (flush, exit, pause).
+@export_range(0.0, 3600.0, 1.0) var autosave_seconds: float = 0.0
+## Save a dirty document when the game closes or is paused (a phone, a hidden browser tab).
+@export var save_on_exit: bool = true
+
 @export_group("Files")
+## The most files the file store holds; 0 is unlimited.
+@export_range(0, 100000, 1) var max_files: int = 0
 ## Where the file store writes.
 @export var directory: String = "user://saves"
 ## Write to a temporary file and rename it over the target, so a crash never leaves half a save.
@@ -42,6 +53,8 @@ func validate() -> DotResult:
 		return DotResult.fail(DotError.CODE_INVALID, "save current_version %d is below 1" % current_version)
 	if max_bytes < 0 or max_slots < 0:
 		return DotResult.fail(DotError.CODE_INVALID, "save limits cannot be negative (0 is unlimited)")
+	if max_files < 0 or autosave_seconds < 0.0:
+		return DotResult.fail(DotError.CODE_INVALID, "save max_files and autosave_seconds cannot be negative (0 is off or unlimited)")
 	if directory.is_empty():
 		return DotResult.fail(DotError.CODE_INVALID, "save directory is empty")
 	return DotResult.success(self)

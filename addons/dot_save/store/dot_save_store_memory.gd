@@ -28,3 +28,12 @@ func exists(key: String) -> bool:
 
 func keys() -> PackedStringArray:
 	return PackedStringArray(_data.keys())
+
+
+func set_aside(key: String) -> DotResult:
+	if not _data.has(key):
+		return DotResult.fail(DotError.CODE_IO, "no save under '%s'" % key)
+	var to := key + ".corrupt"
+	_data[to] = _data[key]
+	_data.erase(key)
+	return DotResult.success(to)

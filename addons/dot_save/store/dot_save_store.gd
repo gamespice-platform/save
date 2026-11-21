@@ -23,3 +23,8 @@ func exists(_key: String) -> bool:
 
 func keys() -> PackedStringArray:
 	return PackedStringArray()
+
+
+## Keeps an unreadable entry for a person to recover and frees its key; the value is where it went. Stores that cannot do this say so.
+func set_aside(_key: String) -> DotResult:
+	return DotResult.fail(DotError.CODE_UNSUPPORTED, "store does not implement set_aside")

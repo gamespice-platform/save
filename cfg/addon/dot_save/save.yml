@@ -1,1 +1,5 @@
 # Shipped defaults are in DotSaveConfig; a key here overrides one.
+# set_aside_damaged: true   # move an unreadable newest copy to <slot>.sav.corrupt
+# autosave_seconds: 0       # 0 saves only on flush, exit or pause
+# save_on_exit: true
+# max_files: 0              # 0 is unlimited
